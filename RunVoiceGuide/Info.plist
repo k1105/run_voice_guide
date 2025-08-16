@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>ラン中のガイドのため位置情報を使用します。</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>画面オフでも計測するため常時の位置情報が必要です。</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>ガイド音声を録音するためマイクを使用します。</string>
+    <key>UIBackgroundModes</key>
+    <array>
+      <string>location</string>
+      <string>audio</string>
+    </array>
+</dict>
+</plist>
