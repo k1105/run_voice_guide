@@ -10,207 +10,162 @@ struct RunningView: View {
     @State private var currentCourse: Course?
     @State private var autoFinishJudge: AutoFinishJudge?
     @State private var showCompletionBanner = false
+    @State private var trackCoordinates: [CLLocationCoordinate2D] = []
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                Rectangle().fill(.gray.opacity(0.2)).frame(height: 320) // 仮スペース
-                
-                VStack(spacing: 16) {
-                    // Current Run Status
-                    if let currentRun = storageService.currentRun {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Current Run:")
-                                .font(.headline)
-                            
-                            Text("Started: \(currentRun.startedAt ?? Date(), formatter: timeFormatter)")
-                                .font(.caption)
-                            
-                            Text("Start Location: \(currentRun.startLat, specifier: "%.6f"), \(currentRun.startLng, specifier: "%.6f")")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Text("ID: \(currentRun.id?.uuidString.prefix(8) ?? "unknown")")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            if let judge = autoFinishJudge, locationService.isTracking {
-                                Divider()
-                                
-                                HStack {
-                                    Image(systemName: "flag.checkered")
-                                        .foregroundColor(.orange)
-                                    Text("Auto-finish: \(judge.consecutiveHits)/3 hits")
-                                        .font(.caption)
-                                        .foregroundColor(.orange)
-                                }
-                                
-                                if judge.shouldFinish {
-                                    HStack {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                        Text("Ready to finish!")
-                                            .font(.caption)
-                                            .foregroundColor(.green)
-                                            .fontWeight(.semibold)
-                                    }
-                                }
-                            }
-                        }
-                        .padding()
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(10)
-                    }
-                    
-                    if let location = locationService.currentLocation {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Current Location:")
-                                .font(.headline)
-                            
-                            Text("Latitude: \(location.coordinate.latitude, specifier: "%.6f")")
-                                .font(.monospaced(.body)())
-                            
-                            Text("Longitude: \(location.coordinate.longitude, specifier: "%.6f")")
-                                .font(.monospaced(.body)())
-                            
-                            Text("Accuracy: \(location.horizontalAccuracy, specifier: "%.1f")m")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Text("Updated: \(Date(), formatter: timeFormatter)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(10)
-                    } else {
-                        Text("No location data")
-                            .foregroundColor(.secondary)
-                            .padding()
-                    }
-                    
-                    // Course and Audio Status
-                    if let course = currentCourse {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Course: \(course.name)")
-                                .font(.headline)
-                            
-                            Text("\(course.guidePoints.count) guide points")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            if audioService.isPlaying {
-                                HStack {
-                                    Image(systemName: "speaker.wave.2.fill")
-                                        .foregroundColor(.green)
-                                    Text("Playing: \(audioService.currentAudioId ?? "unknown")")
-                                        .font(.caption)
-                                }
-                            }
-                            
-                            Text("Triggered: \(geofenceService.getTriggeredIds().count) points")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                            
-                            // Test button to simulate being near first guide point
-                            Button("Test Audio (Simulate Guide Point)") {
-                                if let firstGuidePoint = course.guidePoints.first {
-                                    print("[Test] Simulating guide point hit: \(firstGuidePoint.message)")
-                                    audioService.play(audioId: firstGuidePoint.audioId)
-                                }
-                            }
-                            .font(.caption)
-                            .padding(.top, 4)
-                            
-                            // Test button to simulate auto-finish
-                            if let judge = autoFinishJudge, locationService.isTracking {
-                                Button("Test Auto-Finish (Simulate Start Location)") {
-                                    print("[Test] Simulating location at start for auto-finish")
-                                    let startLocation = judge.startLocation
-                                    // Simulate 3 consecutive hits at start location
-                                    for i in 1...3 {
-                                        judge.processLocationUpdate(startLocation)
-                                        print("[Test] Simulated hit \(i)/3")
-                                    }
-                                }
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .padding(.top, 2)
-                            }
-                        }
-                        .padding()
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(10)
-                    }
-                    
-                    authorizationStatusView
-                    
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            if locationService.isTracking {
-                                // Stop tracking and finish current run
-                                locationService.stopTracking()
-                                storageService.finishCurrentRun()
-                                audioService.stop()
-                                audioService.deactivateSession()
-                                geofenceService.reset()
-                                autoFinishJudge?.reset()
-                                autoFinishJudge = nil
-                            } else {
-                                // Start tracking and create new run if needed
-                                audioService.activateSession()
-                                
-                                guard let location = locationService.currentLocation else {
-                                    locationService.startTracking()
-                                    return
-                                }
-                                
-                                if storageService.currentRun == nil {
-                                    storageService.startNewRun(at: location)
-                                }
-                                
-                                // Initialize AutoFinishJudge with start location
-                                autoFinishJudge = AutoFinishJudge(
-                                    startLatitude: location.coordinate.latitude,
-                                    startLongitude: location.coordinate.longitude,
-                                    endRadius: 30.0,
-                                    requiredConsecutiveHits: 3
-                                )
-                                
-                                locationService.startTracking()
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: locationService.isTracking ? "stop.circle.fill" : "play.circle.fill")
-                                Text(locationService.isTracking ? "Stop Run" : "Start Run")
-                            }
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(locationService.isTracking ? Color.red : Color.green)
-                            .cornerRadius(10)
-                        }
-                        .disabled(locationService.authorizationStatus != .authorizedAlways)
+            ZStack {
+                // スクロール可能に
+                ScrollView {
+                    VStack(spacing: 20) {
+                        TrackMapView(
+                            track: trackCoordinates,
+                            guides: [], // Empty for now
+                            start: nil, // Will be set later
+                            endRadius: nil, // Will be set later
+                            current: locationService.currentLocation?.coordinate
+                        )
+                        .frame(height: 360)
+                        .cornerRadius(12)
                         
-                        if storageService.currentRun != nil && !locationService.isTracking {
-                            Button(action: {
-                                storageService.finishCurrentRun()
-                                autoFinishJudge?.reset()
-                                autoFinishJudge = nil
-                            }) {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                    Text("Finish Run")
+                        VStack(spacing: 16) {
+                            // Current Run Status
+                            if let currentRun = storageService.currentRun {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Current Run:")
+                                        .font(.headline)
+                                    
+                                    Text("Started: \(currentRun.startedAt ?? Date(), formatter: timeFormatter)")
+                                        .font(.caption)
+                                    
+                                    Text("Start Location: \(currentRun.startLat, specifier: "%.6f"), \(currentRun.startLng, specifier: "%.6f")")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text("ID: \(currentRun.id?.uuidString.prefix(8) ?? "unknown")")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    if let judge = autoFinishJudge, locationService.isTracking {
+                                        Divider()
+                                        
+                                        HStack {
+                                            Image(systemName: "flag.checkered")
+                                                .foregroundColor(.orange)
+                                            Text("Auto-finish: \(judge.consecutiveHits)/3 hits")
+                                                .font(.caption)
+                                                .foregroundColor(.orange)
+                                        }
+                                        
+                                        if judge.shouldFinish {
+                                            HStack {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundColor(.green)
+                                                Text("Ready to finish!")
+                                                    .font(.caption)
+                                                    .foregroundColor(.green)
+                                                    .fontWeight(.semibold)
+                                            }
+                                        }
+                                    }
                                 }
-                                .font(.title3)
-                                .foregroundColor(.white)
                                 .padding()
-                                .background(Color.orange)
+                                .background(Color.blue.opacity(0.1))
                                 .cornerRadius(10)
                             }
+                            
+                            if let location = locationService.currentLocation {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Current Location:")
+                                        .font(.headline)
+                                    
+                                    Text("Latitude: \(location.coordinate.latitude, specifier: "%.6f")")
+                                        .font(.monospaced(.body)())
+                                    
+                                    Text("Longitude: \(location.coordinate.longitude, specifier: "%.6f")")
+                                        .font(.monospaced(.body)())
+                                    
+                                    Text("Accuracy: \(location.horizontalAccuracy, specifier: "%.1f")m")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text("Updated: \(Date(), formatter: timeFormatter)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding()
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(10)
+                            } else {
+                                Text("No location data")
+                                    .foregroundColor(.secondary)
+                                    .padding()
+                            }
+                            
+                            // Course and Audio Status
+                            if let course = currentCourse {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Course: \(course.name)")
+                                        .font(.headline)
+                                    
+                                    Text("\(course.guidePoints.count) guide points")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    if audioService.isPlaying {
+                                        HStack {
+                                            Image(systemName: "speaker.wave.2.fill")
+                                                .foregroundColor(.green)
+                                            Text("Playing: \(audioService.currentAudioId ?? "unknown")")
+                                                .font(.caption)
+                                        }
+                                    }
+                                    
+                                    Text("Triggered: \(geofenceService.getTriggeredIds().count) points")
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                    
+                                    Text("Track: \(trackCoordinates.count) coordinates")
+                                        .font(.caption)
+                                        .foregroundColor(.purple)
+                                    
+                                    // Test button to simulate being near first guide point
+                                    Button("Test Audio (Simulate Guide Point)") {
+                                        if let firstGuidePoint = course.guidePoints.first {
+                                            print("[Test] Simulating guide point hit: \(firstGuidePoint.message)")
+                                            audioService.play(audioId: firstGuidePoint.audioId)
+                                        }
+                                    }
+                                    .font(.caption)
+                                    .padding(.top, 4)
+                                    
+                                    // Test button to simulate auto-finish
+                                    if let judge = autoFinishJudge, locationService.isTracking {
+                                        Button("Test Auto-Finish (Simulate Start Location)") {
+                                            print("[Test] Simulating location at start for auto-finish")
+                                            let startLocation = judge.startLocation
+                                            // Simulate 3 consecutive hits at start location
+                                            for i in 1...3 {
+                                                judge.processLocationUpdate(startLocation)
+                                                print("[Test] Simulated hit \(i)/3")
+                                            }
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(.orange)
+                                        .padding(.top, 2)
+                                    }
+                                }
+                                .padding()
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(10)
+                            }
+                            
+                            authorizationStatusView
                         }
+                        .padding(.bottom, 80) // ボタン領域分の余白
                     }
+                    .padding(.horizontal)
+                    .padding(.top)
                 }
                 
                 // Completion Banner
@@ -250,25 +205,93 @@ struct RunningView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.green.opacity(0.3), lineWidth: 1)
                     )
-                    .animation(.easeInOut(duration: 0.3), value: showCompletionBanner)
+                    .padding()
+                    .transition(.move(edge: .top))
+                    .animation(.easeInOut, value: showCompletionBanner)
                 }
-                
-                Spacer()
+            }
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: 16) {
+                    Button(action: {
+                        if locationService.isTracking {
+                            // Stop tracking and finish current run
+                            locationService.stopTracking()
+                            storageService.finishCurrentRun()
+                            audioService.stop()
+                            audioService.deactivateSession()
+                            geofenceService.reset()
+                            autoFinishJudge?.reset()
+                            autoFinishJudge = nil
+                        } else {
+                            // Start tracking and create new run if needed
+                            audioService.activateSession()
+                            
+                            trackCoordinates.removeAll()
+                            
+                            guard let location = locationService.currentLocation else {
+                                locationService.startTracking()
+                                return
+                            }
+                            
+                            if storageService.currentRun == nil {
+                                storageService.startNewRun(at: location)
+                            }
+                            
+                            autoFinishJudge = AutoFinishJudge(
+                                startLatitude: location.coordinate.latitude,
+                                startLongitude: location.coordinate.longitude,
+                                endRadius: 30.0,
+                                requiredConsecutiveHits: 3
+                            )
+                            
+                            locationService.startTracking()
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: locationService.isTracking ? "stop.circle.fill" : "play.circle.fill")
+                            Text(locationService.isTracking ? "Stop Run" : "Start Run")
+                        }
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(locationService.isTracking ? Color.red : Color.green)
+                        .cornerRadius(10)
+                    }
+                    .disabled(locationService.authorizationStatus != .authorizedAlways)
+                    
+                    if storageService.currentRun != nil && !locationService.isTracking {
+                        Button(action: {
+                            storageService.finishCurrentRun()
+                            autoFinishJudge?.reset()
+                            autoFinishJudge = nil
+                        }) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Finish Run")
+                            }
+                            .font(.title3)
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.orange)
+                            .cornerRadius(10)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 10)
             }
             .navigationTitle("Running")
-            .padding()
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .onAppear {
                 if locationService.authorizationStatus == .notDetermined {
                     locationService.requestPermissions()
                 }
                 
-                // Load the default course
                 if currentCourse == nil {
                     currentCourse = CourseLoader.loadDefaultCourse()
                 }
                 
-                // If there's an unfinished run and we have location permission, resume tracking
-                if storageService.currentRun != nil && 
+                if storageService.currentRun != nil &&
                    locationService.authorizationStatus == .authorizedAlways &&
                    !locationService.isTracking {
                     audioService.activateSession()
@@ -276,11 +299,14 @@ struct RunningView: View {
                 }
             }
             .onChange(of: locationService.currentLocation) { newLocation in
-                // Check for geofence hits and auto-finish when location updates
+                if let location = newLocation, locationService.isTracking {
+                    trackCoordinates.append(location.coordinate)
+                    print("[RunningView] Added coordinate to track: \(location.coordinate.latitude), \(location.coordinate.longitude) (total: \(trackCoordinates.count))")
+                }
+                
                 guard let location = newLocation,
                       locationService.isTracking else { return }
                 
-                // Check for geofence hits
                 if let course = currentCourse {
                     let hits = geofenceService.checkHits(at: location, guidePoints: course.guidePoints)
                     
@@ -290,24 +316,20 @@ struct RunningView: View {
                     }
                 }
                 
-                // Check for auto-finish
                 if let judge = autoFinishJudge {
                     judge.processLocationUpdate(location)
                     
                     if judge.shouldFinish {
                         print("[RunningView] Auto-finishing run!")
                         
-                        // Auto-stop the run
                         locationService.stopTracking()
                         storageService.finishCurrentRun(endRadius: 30.0, finishConsecutive: Int32(judge.consecutiveHits))
                         audioService.stop()
                         audioService.deactivateSession()
                         geofenceService.reset()
                         
-                        // Show completion banner
                         showCompletionBanner = true
                         
-                        // Clean up judge
                         autoFinishJudge?.reset()
                         autoFinishJudge = nil
                     }
