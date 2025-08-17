@@ -5,18 +5,18 @@ class CourseLoader {
     
     static func loadGuidePoints() -> [GuidePoint] {
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let guidesURL = documentsDir.appendingPathComponent("guides.json")
+        let courseURL = documentsDir.appendingPathComponent("course.json")
         
-        guard FileManager.default.fileExists(atPath: guidesURL.path) else {
-            print("[CourseLoader] guides.json not found, returning empty array")
+        guard FileManager.default.fileExists(atPath: courseURL.path) else {
+            print("[CourseLoader] course.json not found, returning empty array")
             return []
         }
         
         do {
-            let data = try Data(contentsOf: guidesURL)
+            let data = try Data(contentsOf: courseURL)
             let decoder = JSONDecoder()
             let guides = try decoder.decode([GuidePoint].self, from: data)
-            print("[CourseLoader] Loaded \(guides.count) guide points")
+            print("[CourseLoader] Loaded \(guides.count) guide points from course.json")
             return guides
         } catch {
             print("[CourseLoader] Failed to load guide points: \(error)")
@@ -26,14 +26,14 @@ class CourseLoader {
     
     static func saveGuidePoints(_ guides: [GuidePoint]) {
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let guidesURL = documentsDir.appendingPathComponent("guides.json")
+        let courseURL = documentsDir.appendingPathComponent("course.json")
         
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
             let data = try encoder.encode(guides)
-            try data.write(to: guidesURL)
-            print("[CourseLoader] Saved \(guides.count) guide points")
+            try data.write(to: courseURL)
+            print("[CourseLoader] Saved \(guides.count) guide points to course.json")
         } catch {
             print("[CourseLoader] Failed to save guide points: \(error)")
         }
