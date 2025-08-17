@@ -114,6 +114,13 @@ struct RunningView: View {
                                             Text("Playing: \(audioService.currentAudioId ?? "unknown")").font(.caption)
                                         }
                                     }
+                                    
+                                    if audioService.isBGMPlaying {
+                                        HStack {
+                                            Image(systemName: "music.note").foregroundColor(.blue)
+                                            Text("BGM Playing").font(.caption).foregroundColor(.blue)
+                                        }
+                                    }
 
                                     Text("Triggered: \(geofenceService.getTriggeredIds().count) points")
                                         .font(.caption).foregroundColor(.blue)
@@ -161,37 +168,41 @@ struct RunningView: View {
             // 下部固定ボタン（背景は透明のまま）
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 16) {
-                    Button {
-                        if locationService.isTracking {
-                            // Stop & finish
-                            locationService.stopTracking()
-                            storageService.finishCurrentRun()
-                            audioService.stop()
-                            audioService.deactivateSession()
-                            geofenceService.reset()
-                            autoFinishJudge?.reset(); autoFinishJudge = nil
-                        } else {
-                            // Start
-                            audioService.activateSession()
-                            trackCoordinates.removeAll()
+                                            Button {
+                            if locationService.isTracking {
+                                // Stop & finish
+                                locationService.stopTracking()
+                                storageService.finishCurrentRun()
+                                audioService.stop()
+                                audioService.stopBGM()
+                                audioService.deactivateSession()
+                                geofenceService.reset()
+                                autoFinishJudge?.reset(); autoFinishJudge = nil
+                            } else {
+                                // Start
+                                audioService.activateSession()
+                                trackCoordinates.removeAll()
 
-                            // 位置が無い場合でも startTracking。最初の有効位置で自動Run開始（LocationService側で対応）
-                            locationService.startTracking()
+                                // 位置が無い場合でも startTracking。最初の有効位置で自動Run開始（LocationService側で対応）
+                                locationService.startTracking()
 
-                            // もし現時点で位置があれば、直ちに Run 作成＋AutoFinishJudge
-                            if let loc = locationService.currentLocation {
-                                if storageService.currentRun == nil {
-                                    storageService.startNewRun(at: loc)
+                                // もし現時点で位置があれば、直ちに Run 作成＋AutoFinishJudge
+                                if let loc = locationService.currentLocation {
+                                    if storageService.currentRun == nil {
+                                        storageService.startNewRun(at: loc)
+                                    }
+                                    autoFinishJudge = AutoFinishJudge(
+                                        startLatitude: loc.coordinate.latitude,
+                                        startLongitude: loc.coordinate.longitude,
+                                        endRadius: settings.finishRadius,
+                                        requiredConsecutiveHits: settings.finishConsecutive
+                                    )
                                 }
-                                autoFinishJudge = AutoFinishJudge(
-                                    startLatitude: loc.coordinate.latitude,
-                                    startLongitude: loc.coordinate.longitude,
-                                    endRadius: settings.finishRadius,
-                                    requiredConsecutiveHits: settings.finishConsecutive
-                                )
+                                
+                                // Start BGM
+                                audioService.startBGM()
                             }
-                        }
-                    } label: {
+                        } label: {
                         HStack {
                             Image(systemName: locationService.isTracking ? "stop.circle.fill" : "play.circle.fill")
                             Text(locationService.isTracking ? "Stop Run" : "Start Run")
@@ -208,6 +219,7 @@ struct RunningView: View {
                     if storageService.currentRun != nil && !locationService.isTracking {
                         Button {
                             storageService.finishCurrentRun()
+                            audioService.stopBGM()
                             autoFinishJudge?.reset(); autoFinishJudge = nil
                         } label: {
                             HStack {
@@ -255,6 +267,7 @@ struct RunningView: View {
                     !locationService.isTracking {
                     audioService.activateSession()
                     locationService.startTracking()
+                    audioService.startBGM()
                 }
             }
             .onDisappear {
@@ -287,7 +300,7 @@ struct RunningView: View {
                         print("[RunningView] Auto-finishing run!")
                         locationService.stopTracking()
                         storageService.finishCurrentRun(endRadius: settings.finishRadius, finishConsecutive: Int32(judge.consecutiveHits))
-                        audioService.stop(); audioService.deactivateSession()
+                        audioService.stop(); audioService.stopBGM(); audioService.deactivateSession()
                         geofenceService.reset()
                         showCompletionBanner = true
                         autoFinishJudge?.reset(); autoFinishJudge = nil

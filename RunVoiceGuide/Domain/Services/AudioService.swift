@@ -6,11 +6,13 @@ import UIKit
 class AudioService: NSObject, ObservableObject {
     private var audioSession: AVAudioSession = AVAudioSession.sharedInstance()
     private var currentPlayer: AVAudioPlayer?
+    private var bgmPlayer: AVAudioPlayer?
     private var fadeTimer: Timer?
     private var notationDelegate: NotationPlayerDelegate?
     
     @Published var isPlaying = false
     @Published var currentAudioId: String?
+    @Published var isBGMPlaying = false
     
     override init() {
         super.init()
@@ -52,6 +54,50 @@ class AudioService: NSObject, ObservableObject {
             print("[Audio] Failed to deactivate session: \(error)")
         }
     }
+    
+    // MARK: - BGM Management
+    
+    func startBGM() {
+        guard bgmPlayer == nil else {
+            print("[Audio] BGM already playing")
+            return
+        }
+        
+        guard let bgmURL = Bundle.main.url(forResource: "bgm", withExtension: "mp3") else {
+            print("[Audio] bgm.mp3 not found in bundle")
+            return
+        }
+        
+        do {
+            let player = try AVAudioPlayer(contentsOf: bgmURL)
+            player.delegate = self
+            player.numberOfLoops = -1 // Infinite loop
+            player.volume = 0.3 // Lower volume for BGM
+            player.prepareToPlay()
+            
+            bgmPlayer = player
+            isBGMPlaying = true
+            
+            player.play()
+            print("[Audio] Started BGM loop")
+            
+        } catch {
+            print("[Audio] Failed to create BGM player: \(error)")
+        }
+    }
+    
+    func stopBGM() {
+        bgmPlayer?.stop()
+        bgmPlayer = nil
+        isBGMPlaying = false
+        print("[Audio] Stopped BGM")
+    }
+    
+    func setBGMVolume(_ volume: Float) {
+        bgmPlayer?.volume = max(0, min(1, volume))
+    }
+    
+    // MARK: - Audio Playback
     
     func play(audioId: String) {
         guard !isPlaying || currentAudioId != audioId else {
@@ -236,12 +282,20 @@ class AudioService: NSObject, ObservableObject {
             if isPlaying {
                 currentPlayer?.pause()
             }
+            if isBGMPlaying {
+                bgmPlayer?.pause()
+            }
         case .ended:
             print("[Audio] Interruption ended")
             if let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt {
                 let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-                if options.contains(.shouldResume) && currentPlayer != nil {
-                    currentPlayer?.play()
+                if options.contains(.shouldResume) {
+                    if currentPlayer != nil {
+                        currentPlayer?.play()
+                    }
+                    if bgmPlayer != nil {
+                        bgmPlayer?.play()
+                    }
                 }
             }
         @unknown default:
