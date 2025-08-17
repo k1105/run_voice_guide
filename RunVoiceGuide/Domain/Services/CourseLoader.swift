@@ -1,5 +1,9 @@
 import Foundation
 
+extension Notification.Name {
+    static let guidePointsDidChange = Notification.Name("guidePointsDidChange")
+}
+
 class CourseLoader {
     // MARK: - GuidePoint Persistence
     
@@ -34,6 +38,9 @@ class CourseLoader {
             let data = try encoder.encode(guides)
             try data.write(to: courseURL)
             print("[CourseLoader] Saved \(guides.count) guide points to course.json")
+            
+            // Broadcast change notification
+            NotificationCenter.default.post(name: .guidePointsDidChange, object: nil)
         } catch {
             print("[CourseLoader] Failed to save guide points: \(error)")
         }

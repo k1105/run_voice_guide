@@ -8,6 +8,7 @@ struct RunningView: View {
     @StateObject private var audioService = AudioService()
 
     @State private var currentCourse: Course?
+    @State private var guidePoints: [GuidePoint] = []
     @State private var autoFinishJudge: AutoFinishJudge?
     @State private var showCompletionBanner = false
     @State private var trackCoordinates: [CLLocationCoordinate2D] = []
@@ -15,8 +16,7 @@ struct RunningView: View {
     // MARK: - Map bindings
 
     private var mappedGuides: [TrackMapView.GuidePin] {
-        guard let course = currentCourse else { return [] }
-        return course.guidePoints.map { gp in
+        return guidePoints.map { gp in
             TrackMapView.GuidePin(
                 id: gp.id.uuidString,
                 coord: .init(latitude: gp.latitude, longitude: gp.longitude),
@@ -27,8 +27,8 @@ struct RunningView: View {
     }
 
     private var startLocation: CLLocationCoordinate2D? {
-        // 便宜上：コースの先頭ガイド位置を start の見た目に（本来はコース定義の start を使用）
-        guard let course = currentCourse, let first = course.guidePoints.first else { return nil }
+        // 便宜上：先頭ガイド位置を start の見た目に
+        guard let first = guidePoints.first else { return nil }
         return .init(latitude: first.latitude, longitude: first.longitude)
     }
 
@@ -102,11 +102,10 @@ struct RunningView: View {
                                 Text("No location data").foregroundColor(.secondary).padding()
                             }
 
-                            // Course & Audio status
-                            if let course = currentCourse {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Course: \(course.name)").font(.headline)
-                                    Text("\(course.guidePoints.count) guide points").font(.caption).foregroundColor(.secondary)
+                            // Guide Points & Audio status
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Guide Points").font(.headline)
+                                Text("\(guidePoints.count) guide points").font(.caption).foregroundColor(.secondary)
 
                                     if audioService.isPlaying {
                                         HStack {
@@ -117,13 +116,12 @@ struct RunningView: View {
 
                                     Text("Triggered: \(geofenceService.getTriggeredIds().count) points")
                                         .font(.caption).foregroundColor(.blue)
-                                    Text("Track: \(trackCoordinates.count) coordinates")
-                                        .font(.caption).foregroundColor(.purple)
-                                }
-                                .padding()
-                                .background(Color.green.opacity(0.1))
-                                .cornerRadius(10)
+                                Text("Track: \(trackCoordinates.count) coordinates")
+                                    .font(.caption).foregroundColor(.purple)
                             }
+                            .padding()
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(10)
 
                             authorizationStatusView
                         }
@@ -235,6 +233,20 @@ struct RunningView: View {
                 if currentCourse == nil {
                     currentCourse = CourseLoader.loadDefaultCourse()
                 }
+                
+                // Load persisted guide points
+                loadGuidePoints()
+                
+                // Subscribe to guide points changes
+                NotificationCenter.default.addObserver(
+                    forName: .guidePointsDidChange,
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    loadGuidePoints()
+                    geofenceService.reset()
+                }
+                
                 // 未終了Runがあり権限OKなら再開
                 if storageService.currentRun != nil &&
                     (locationService.authorizationStatus == .authorizedAlways ||
@@ -243,6 +255,9 @@ struct RunningView: View {
                     audioService.activateSession()
                     locationService.startTracking()
                 }
+            }
+            .onDisappear {
+                NotificationCenter.default.removeObserver(self, name: .guidePointsDidChange, object: nil)
             }
             .onChange(of: locationService.currentLocation) { newLocation in
                 guard let location = newLocation else { return }
@@ -256,11 +271,11 @@ struct RunningView: View {
                 guard locationService.isTracking else { return }
 
                 // ガイド到達 & 再生
-                if let course = currentCourse {
-                    let hits = geofenceService.checkHits(at: location, guidePoints: course.guidePoints)
-                    for hit in hits {
-                        print("[RunningView] Guide hit: \(hit.message)")
-                        audioService.play(audioId: hit.audioId)
+                let hits = geofenceService.checkHits(at: location, guidePoints: guidePoints)
+                for hit in hits {
+                    print("[RunningView] Guide hit: \(hit.message)")
+                    if !hit.audioId.isEmpty {
+                        audioService.playFromDocuments(audioId: hit.audioId)
                     }
                 }
 
@@ -289,6 +304,13 @@ struct RunningView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Guide Points Management
+    
+    private func loadGuidePoints() {
+        guidePoints = CourseLoader.loadGuidePoints()
+        print("[RunningView] Loaded \(guidePoints.count) guide points")
     }
 
     // MARK: - Aux UI
