@@ -7,6 +7,7 @@ class AudioService: NSObject, ObservableObject {
     private var audioSession: AVAudioSession = AVAudioSession.sharedInstance()
     private var currentPlayer: AVAudioPlayer?
     private var fadeTimer: Timer?
+    private var notationDelegate: NotationPlayerDelegate?
     
     @Published var isPlaying = false
     @Published var currentAudioId: String?
@@ -84,6 +85,22 @@ class AudioService: NSObject, ObservableObject {
         }
     }
     
+    func playGuideWithNotation(audioId: String) {
+        guard !isPlaying || currentAudioId != audioId else {
+            print("[Audio] Already playing \(audioId), skipping")
+            return
+        }
+        
+        // If currently playing, fade out first
+        if isPlaying {
+            fadeOutCurrentAudio {
+                self.startNotationThenGuide(audioId: audioId)
+            }
+        } else {
+            startNotationThenGuide(audioId: audioId)
+        }
+    }
+    
     private func startPlayback(audioId: String) {
         guard let url = Bundle.main.url(forResource: audioId, withExtension: "mp3") else {
             print("[Audio] Audio file not found: \(audioId).mp3")
@@ -107,7 +124,7 @@ class AudioService: NSObject, ObservableObject {
         }
     }
     
-    private func startPlaybackFromDocuments(audioId: String) {
+    func startPlaybackFromDocuments(audioId: String) {
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let audioURL = documentsDir.appendingPathComponent("audio").appendingPathComponent(audioId)
         
@@ -130,6 +147,34 @@ class AudioService: NSObject, ObservableObject {
             
         } catch {
             print("[Audio] Failed to create player for \(audioId): \(error)")
+        }
+    }
+    
+    private func startNotationThenGuide(audioId: String) {
+        // First play notation.mp3 from bundle
+        guard let notationURL = Bundle.main.url(forResource: "notation", withExtension: "mp3") else {
+            print("[Audio] notation.mp3 not found in bundle, playing guide directly")
+            startPlaybackFromDocuments(audioId: audioId)
+            return
+        }
+        
+        do {
+            let notationPlayer = try AVAudioPlayer(contentsOf: notationURL)
+            let delegate = NotationPlayerDelegate(audioService: self, guideAudioId: audioId)
+            notationDelegate = delegate
+            notationPlayer.delegate = delegate
+            notationPlayer.prepareToPlay()
+            
+            currentPlayer = notationPlayer
+            currentAudioId = "notation"
+            isPlaying = true
+            
+            notationPlayer.play()
+            print("[Audio] Started playing notation, will follow with guide: \(audioId)")
+            
+        } catch {
+            print("[Audio] Failed to create notation player: \(error), playing guide directly")
+            startPlaybackFromDocuments(audioId: audioId)
         }
     }
     
@@ -172,6 +217,12 @@ class AudioService: NSObject, ObservableObject {
         print("[Audio] Stopped playback")
     }
     
+    func resetPlayerState() {
+        currentPlayer = nil
+        currentAudioId = nil
+        isPlaying = false
+    }
+    
     @objc private func handleAudioInterruption(notification: Notification) {
         guard let info = notification.userInfo,
               let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -195,6 +246,45 @@ class AudioService: NSObject, ObservableObject {
             }
         @unknown default:
             break
+        }
+    }
+}
+
+// MARK: - NotationPlayerDelegate
+
+private class NotationPlayerDelegate: NSObject, AVAudioPlayerDelegate {
+    weak var audioService: AudioService?
+    let guideAudioId: String
+    
+    init(audioService: AudioService, guideAudioId: String) {
+        self.audioService = audioService
+        self.guideAudioId = guideAudioId
+    }
+    
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            guard let audioService = self.audioService else { return }
+            
+            print("[Audio] Notation finished playing: \(flag ? "successfully" : "with error"), starting guide: \(self.guideAudioId)")
+            
+            // Reset the current player state
+            audioService.resetPlayerState()
+            
+            // Now play the guide audio
+            audioService.startPlaybackFromDocuments(audioId: self.guideAudioId)
+        }
+    }
+    
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        Task { @MainActor in
+            guard let audioService = self.audioService else { return }
+            
+            print("[Audio] Notation decode error: \(error?.localizedDescription ?? "unknown"), starting guide directly: \(self.guideAudioId)")
+            
+            // Reset state and play guide directly
+            audioService.resetPlayerState()
+            
+            audioService.startPlaybackFromDocuments(audioId: self.guideAudioId)
         }
     }
 }

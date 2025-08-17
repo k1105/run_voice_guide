@@ -276,7 +276,7 @@ struct RunningView: View {
                 for hit in hits {
                     print("[RunningView] Guide hit: \(hit.message)")
                     if !hit.audioId.isEmpty {
-                        audioService.playFromDocuments(audioId: hit.audioId)
+                        audioService.playGuideWithNotation(audioId: hit.audioId)
                     }
                 }
 
