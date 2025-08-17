@@ -15,9 +15,10 @@ class GeofenceService: ObservableObject {
                 longitude: guidePoint.longitude
             ))
             
-            let isWithinRadius = distance <= guidePoint.radius
+            let triggerRadius = guidePoint.radius
+            let isWithinRadius = distance <= triggerRadius
             let isAlreadyTriggered = triggeredGuidePoints.contains(guidePoint.id)
-            let hysteresisRadius = guidePoint.radius * hysteresisFactor
+            let hysteresisRadius = triggerRadius * hysteresisFactor
             let isOutsideHysteresis = distance > hysteresisRadius
             
             // Reset trigger if we've moved outside the hysteresis radius
@@ -30,7 +31,7 @@ class GeofenceService: ObservableObject {
             if isWithinRadius && !triggeredGuidePoints.contains(guidePoint.id) {
                 triggeredGuidePoints.insert(guidePoint.id)
                 hits.append(guidePoint)
-                print("[Geofence] Hit guide point \(guidePoint.id) - distance: \(distance)m, radius: \(guidePoint.radius)m")
+                print("[Geofence] Hit guide point \(guidePoint.id) - distance: \(distance)m, radius: \(triggerRadius)m")
             }
         }
         

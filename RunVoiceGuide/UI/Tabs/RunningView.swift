@@ -6,6 +6,7 @@ struct RunningView: View {
     @StateObject private var storageService = StorageService.shared
     @StateObject private var geofenceService = GeofenceService()
     @StateObject private var audioService = AudioService()
+    @StateObject private var settings = SettingsStore.shared
 
     @State private var currentCourse: Course?
     @State private var guidePoints: [GuidePoint] = []
@@ -33,7 +34,7 @@ struct RunningView: View {
     }
 
     private var endRadius: CLLocationDistance? {
-        autoFinishJudge != nil ? 30.0 : nil
+        autoFinishJudge != nil ? settings.finishRadius : nil
     }
 
     var body: some View {
@@ -185,8 +186,8 @@ struct RunningView: View {
                                 autoFinishJudge = AutoFinishJudge(
                                     startLatitude: loc.coordinate.latitude,
                                     startLongitude: loc.coordinate.longitude,
-                                    endRadius: 30.0,
-                                    requiredConsecutiveHits: 3
+                                    endRadius: settings.finishRadius,
+                                    requiredConsecutiveHits: settings.finishConsecutive
                                 )
                             }
                         }
@@ -285,7 +286,7 @@ struct RunningView: View {
                     if judge.shouldFinish {
                         print("[RunningView] Auto-finishing run!")
                         locationService.stopTracking()
-                        storageService.finishCurrentRun(endRadius: 30.0, finishConsecutive: Int32(judge.consecutiveHits))
+                        storageService.finishCurrentRun(endRadius: settings.finishRadius, finishConsecutive: Int32(judge.consecutiveHits))
                         audioService.stop(); audioService.deactivateSession()
                         geofenceService.reset()
                         showCompletionBanner = true
@@ -297,8 +298,8 @@ struct RunningView: View {
                         autoFinishJudge = AutoFinishJudge(
                             startLatitude: run.startLat,
                             startLongitude: run.startLng,
-                            endRadius: 30.0,
-                            requiredConsecutiveHits: 3
+                            endRadius: settings.finishRadius,
+                            requiredConsecutiveHits: settings.finishConsecutive
                         )
                     }
                 }

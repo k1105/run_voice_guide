@@ -60,8 +60,9 @@ struct GuideEditorSheet: View {
         switch mode {
         case .new(let initial):
             let coord = initial ?? CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503)
+            let initialRadius = SettingsStore.shared.guideTriggerRadius
             self._selectedCoordinate = State(initialValue: coord)
-            self._radius = State(initialValue: defaultRadius)
+            self._radius = State(initialValue: initialRadius)
             self._label = State(initialValue: "")
             self._audioId = State(initialValue: nil)
             self._cameraPosition = State(initialValue: .region(MKCoordinateRegion(
