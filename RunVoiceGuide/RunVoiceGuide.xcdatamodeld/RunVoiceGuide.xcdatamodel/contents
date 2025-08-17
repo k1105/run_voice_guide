@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22758" systemVersion="24E248" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="Run" representedClassName="RunEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="endRadius" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="endedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="finishConsecutive" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="startLat" optional="NO" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="startLng" optional="NO" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="startedAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="trackPoints" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TrackPoint" inverseName="run" inverseEntity="TrackPoint"/>
+    </entity>
+    <entity name="TrackPoint" representedClassName="TrackPointEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="accuracy" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="heading" optional="YES" attributeType="Double" usesScalarValueType="NO"/>
+        <attribute name="lat" optional="NO" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="lng" optional="NO" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="runId" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="speed" optional="YES" attributeType="Double" usesScalarValueType="NO"/>
+        <attribute name="ts" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="run" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Run" inverseName="trackPoints" inverseEntity="Run"/>
+    </entity>
+</model>

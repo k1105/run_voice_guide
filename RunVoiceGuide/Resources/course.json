@@ -1,0 +1,46 @@
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Demo Course",
+  "description": "A demo course for testing geofencing and audio playback",
+  "distance": 1000.0,
+  "estimatedDuration": 600.0,
+  "isActive": true,
+  "guidePoints": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "latitude": 35.6762,
+      "longitude": 139.6503,
+      "radius": 20.0,
+      "message": "Welcome to the start line!",
+      "audioId": "welcome",
+      "isCompleted": false
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440002",
+      "latitude": 35.6765,
+      "longitude": 139.6506,
+      "radius": 15.0,
+      "message": "First checkpoint reached",
+      "audioId": "checkpoint1",
+      "isCompleted": false
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440003",
+      "latitude": 35.6768,
+      "longitude": 139.6509,
+      "radius": 15.0,
+      "message": "Second checkpoint reached",
+      "audioId": "checkpoint2",
+      "isCompleted": false
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440004",
+      "latitude": 35.6771,
+      "longitude": 139.6512,
+      "radius": 25.0,
+      "message": "Finish line ahead!",
+      "audioId": "finish",
+      "isCompleted": false
+    }
+  ]
+}

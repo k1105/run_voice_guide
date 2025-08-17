@@ -1,0 +1,9 @@
+Audio files needed for the demo course:
+
+- welcome.mp3 - "Welcome to the start line!"
+- checkpoint1.mp3 - "First checkpoint reached"
+- checkpoint2.mp3 - "Second checkpoint reached"  
+- finish.mp3 - "Finish line ahead!"
+
+Note: These should be short MP3 files (2-3 seconds each) for the demo.
+For testing purposes, you can use any MP3 files and rename them accordingly.
