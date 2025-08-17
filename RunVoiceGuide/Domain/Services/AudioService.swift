@@ -33,16 +33,20 @@ class AudioService: NSObject, ObservableObject {
         do {
             try audioSession.setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP])
             try audioSession.setActive(true)
-            print("[Audio] Session activated for playback")
+            print("[Audio] Session activated for playback - Category: \(audioSession.category.rawValue)")
         } catch {
             print("[Audio] Failed to activate session: \(error)")
         }
     }
     
+    func currentCategory() -> String {
+        return audioSession.category.rawValue
+    }
+    
     func deactivateSession() {
         do {
             try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-            print("[Audio] Session deactivated")
+            print("[Audio] Session deactivated - Category: \(audioSession.category.rawValue)")
         } catch {
             print("[Audio] Failed to deactivate session: \(error)")
         }

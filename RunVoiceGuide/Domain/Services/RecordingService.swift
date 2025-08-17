@@ -200,6 +200,9 @@ final class RecordingService: NSObject, ObservableObject {
         // Move file
         try FileManager.default.moveItem(at: tempURL, to: permanentURL)
         
+        // Restore audio session after committing
+        restoreAudioSession()
+        
         currentRecordingId = nil
         currentDuration = 0
         
@@ -215,27 +218,34 @@ final class RecordingService: NSObject, ObservableObject {
         previousAudioSessionMode = audioSession.mode
         previousAudioSessionOptions = audioSession.categoryOptions
         
+        print("[Recording] Saving current audio session - Category: \(previousAudioSessionCategory?.rawValue ?? "unknown"), Mode: \(previousAudioSessionMode?.rawValue ?? "unknown")")
+        
         try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
         try audioSession.setActive(true, options: [])
         
-        print("[Recording] Audio session configured for recording")
+        print("[Recording] Audio session configured for recording - Category: \(audioSession.category.rawValue)")
     }
     
     private func restoreAudioSession() {
-        guard let previousCategory = previousAudioSessionCategory else { return }
+        guard let previousCategory = previousAudioSessionCategory else { 
+            print("[Recording] No previous audio session to restore")
+            return 
+        }
         
         do {
+            print("[Recording] Restoring audio session - Category: \(previousCategory.rawValue), Mode: \(previousAudioSessionMode?.rawValue ?? "default")")
             try audioSession.setCategory(
                 previousCategory,
                 mode: previousAudioSessionMode ?? .default,
                 options: previousAudioSessionOptions ?? []
             )
             try audioSession.setActive(true, options: [])
-            print("[Recording] Audio session restored")
+            print("[Recording] Audio session restored successfully - Category: \(audioSession.category.rawValue)")
         } catch {
             print("[Recording] Failed to restore audio session: \(error)")
         }
         
+        // Clear saved state
         previousAudioSessionCategory = nil
         previousAudioSessionMode = nil
         previousAudioSessionOptions = nil
