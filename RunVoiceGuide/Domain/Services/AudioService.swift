@@ -64,6 +64,22 @@ class AudioService: NSObject, ObservableObject {
         }
     }
     
+    func playFromDocuments(audioId: String) {
+        guard !isPlaying || currentAudioId != audioId else {
+            print("[Audio] Already playing \(audioId), skipping")
+            return
+        }
+        
+        // If currently playing, fade out first
+        if isPlaying {
+            fadeOutCurrentAudio {
+                self.startPlaybackFromDocuments(audioId: audioId)
+            }
+        } else {
+            startPlaybackFromDocuments(audioId: audioId)
+        }
+    }
+    
     private func startPlayback(audioId: String) {
         guard let url = Bundle.main.url(forResource: audioId, withExtension: "mp3") else {
             print("[Audio] Audio file not found: \(audioId).mp3")
@@ -81,6 +97,32 @@ class AudioService: NSObject, ObservableObject {
             
             player.play()
             print("[Audio] Started playing: \(audioId)")
+            
+        } catch {
+            print("[Audio] Failed to create player for \(audioId): \(error)")
+        }
+    }
+    
+    private func startPlaybackFromDocuments(audioId: String) {
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let audioURL = documentsDir.appendingPathComponent("audio").appendingPathComponent(audioId)
+        
+        guard FileManager.default.fileExists(atPath: audioURL.path) else {
+            print("[Audio] Audio file not found in Documents: \(audioId)")
+            return
+        }
+        
+        do {
+            let player = try AVAudioPlayer(contentsOf: audioURL)
+            player.delegate = self
+            player.prepareToPlay()
+            
+            currentPlayer = player
+            currentAudioId = audioId
+            isPlaying = true
+            
+            player.play()
+            print("[Audio] Started playing from Documents: \(audioId)")
             
         } catch {
             print("[Audio] Failed to create player for \(audioId): \(error)")

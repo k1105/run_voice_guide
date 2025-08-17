@@ -1,6 +1,46 @@
 import Foundation
 
 class CourseLoader {
+    // MARK: - GuidePoint Persistence
+    
+    static func loadGuidePoints() -> [GuidePoint] {
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let guidesURL = documentsDir.appendingPathComponent("guides.json")
+        
+        guard FileManager.default.fileExists(atPath: guidesURL.path) else {
+            print("[CourseLoader] guides.json not found, returning empty array")
+            return []
+        }
+        
+        do {
+            let data = try Data(contentsOf: guidesURL)
+            let decoder = JSONDecoder()
+            let guides = try decoder.decode([GuidePoint].self, from: data)
+            print("[CourseLoader] Loaded \(guides.count) guide points")
+            return guides
+        } catch {
+            print("[CourseLoader] Failed to load guide points: \(error)")
+            return []
+        }
+    }
+    
+    static func saveGuidePoints(_ guides: [GuidePoint]) {
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let guidesURL = documentsDir.appendingPathComponent("guides.json")
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let data = try encoder.encode(guides)
+            try data.write(to: guidesURL)
+            print("[CourseLoader] Saved \(guides.count) guide points")
+        } catch {
+            print("[CourseLoader] Failed to save guide points: \(error)")
+        }
+    }
+    
+    // MARK: - Course Loading
+    
     static func loadDefaultCourse() -> Course? {
         guard let url = Bundle.main.url(forResource: "course", withExtension: "json") else {
             print("[CourseLoader] course.json not found in bundle")
