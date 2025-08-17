@@ -47,6 +47,9 @@ struct RecordingView: View {
                     },
                     onCancel: {
                         // Sheet handles temp recording cleanup
+                    },
+                    onDelete: { guideToDelete in
+                        deleteGuide(guideToDelete)
                     }
                 )
             }
@@ -120,6 +123,15 @@ struct RecordingView: View {
     private func deleteGuides(at offsets: IndexSet) {
         guides.remove(atOffsets: offsets)
         saveGuides()
+    }
+    
+    private func deleteGuide(_ guide: GuidePoint) {
+        if let index = guides.firstIndex(where: { $0.id == guide.id }) {
+            guides.remove(at: index)
+            saveGuides()
+            editingGuide = nil  // 編集シートを閉じる
+            print("[RecordingView] Deleted guide: \(guide.message)")
+        }
     }
     
     private func saveGuides() {

@@ -27,6 +27,7 @@ struct GuideEditorSheet: View {
     let defaultRadius: CLLocationDistance
     let onSave: (GuidePoint) -> Void
     let onCancel: (() -> Void)?
+    let onDelete: ((GuidePoint) -> Void)?  // 削除用のコールバックを追加
     
     @State private var oneShotFetcher = OneShotLocationFetcher()
     @State private var selectedCoordinate: CLLocationCoordinate2D
@@ -40,6 +41,7 @@ struct GuideEditorSheet: View {
     @State private var isPreviewing = false
     @State private var showingPermissionAlert = false
     @State private var showingLocationAlert = false
+    @State private var showingDeleteAlert = false  // 削除確認用
 
     @State private var isFetchingGPS = false   // ← 連打防止のみ残す
 
@@ -50,12 +52,14 @@ struct GuideEditorSheet: View {
         mode: Mode,
         defaultRadius: CLLocationDistance = 40,
         onSave: @escaping (GuidePoint) -> Void,
-        onCancel: (() -> Void)? = nil
+        onCancel: (() -> Void)? = nil,
+        onDelete: ((GuidePoint) -> Void)? = nil  // 削除用のコールバックを追加
     ) {
         self.mode = mode
         self.defaultRadius = defaultRadius
         self.onSave = onSave
         self.onCancel = onCancel
+        self.onDelete = onDelete
         
         switch mode {
         case .new(let initial):
@@ -99,7 +103,17 @@ struct GuideEditorSheet: View {
                         handleCancel()
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if case .edit = mode {
+                        Button(role: .destructive) {
+                            showingDeleteAlert = true
+                        } label: {
+                            Image(systemName: "trash.fill")
+                                .foregroundColor(.red)
+                        }
+                    }
+                    
                     Button("Save") {
                         handleSave()
                     }
@@ -121,6 +135,17 @@ struct GuideEditorSheet: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Current location is not available. Please ensure location services are enabled and try again.")
+        }
+        .alert("Delete Guide", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                if case .edit(let guide) = mode {
+                    onDelete?(guide)
+                }
+                dismiss()
+            }
+        } message: {
+            Text("Are you sure you want to delete this guide point?")
         }
         .onAppear {
             // Newモード & 初期座標なし → 可能なら一発取得で初期化
@@ -544,6 +569,9 @@ extension GuideEditorSheet.Mode {
         mode: .new(initial: CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503))
     ) { guide in
         print("Saved guide: \(guide)")
+    } onDelete: { guide in
+        print("Deleted guide: \(guide)")
     }
 }
+
 

@@ -127,8 +127,13 @@ final class StorageService: ObservableObject {
     }
 
     func getTrackPoints(for run: RunEntity) -> [TrackPointEntity] {
+        guard let runId = run.id else {
+            print("[StorageService] Cannot get track points: run.id is nil")
+            return []
+        }
+        
         let request: NSFetchRequest<TrackPointEntity> = TrackPointEntity.fetchRequest()
-        request.predicate = NSPredicate(format: "runId == %@", run.id! as CVarArg)
+        request.predicate = NSPredicate(format: "runId == %@", runId as CVarArg)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \TrackPointEntity.ts, ascending: true)]
         do {
             return try context.fetch(request)

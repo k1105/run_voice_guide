@@ -5,6 +5,8 @@ struct HistoryDetailView: View {
     let run: RunEntity
     @StateObject private var storageService = StorageService.shared
     @State private var currentCourse: Course?
+    @State private var showingDeleteAlert = false
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         ScrollView {
@@ -30,6 +32,24 @@ struct HistoryDetailView: View {
         }
         .navigationTitle("Run Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    showingDeleteAlert = true
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+            }
+        }
+        .alert("Delete Run", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteRun()
+            }
+        } message: {
+            Text("Are you sure you want to delete this run? This action cannot be undone.")
+        }
         .onAppear {
             if currentCourse == nil {
                 currentCourse = CourseLoader.loadDefaultCourse()
@@ -265,6 +285,46 @@ struct HistoryDetailView: View {
         formatter.dateStyle = .short
         formatter.timeStyle = .medium
         return formatter
+    }
+    
+    // MARK: - Delete Function
+    
+    private func deleteRun() {
+        // run.idがnilでないことを確認
+        guard let runId = run.id else {
+            print("[HistoryDetailView] Cannot delete run: run.id is nil")
+            return
+        }
+        
+        // 関連するTrackPointを明示的に削除
+        let trackPoints = storageService.getTrackPoints(for: run)
+        for trackPoint in trackPoints {
+            storageService.persistentContainer.viewContext.delete(trackPoint)
+        }
+        
+        // Runを削除
+        storageService.persistentContainer.viewContext.delete(run)
+        
+        // 現在のRunが削除対象の場合はnilに設定
+        if storageService.currentRun?.id == runId {
+            storageService.currentRun = nil
+        }
+        
+        // allRuns配列からも削除
+        if let index = storageService.allRuns.firstIndex(where: { $0.id == runId }) {
+            storageService.allRuns.remove(at: index)
+        }
+        
+        // コンテキストを保存
+        do {
+            try storageService.persistentContainer.viewContext.save()
+            print("[HistoryDetailView] Successfully deleted run: \(runId.uuidString)")
+        } catch {
+            print("[HistoryDetailView] Failed to delete run: \(error)")
+        }
+        
+        // 前の画面に戻る
+        dismiss()
     }
 }
 
