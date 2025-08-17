@@ -65,9 +65,13 @@ struct GuideEditorSheet: View {
         case .new(let initial):
             let coord = initial ?? CLLocationCoordinate2D(latitude: 35.6762, longitude: 139.6503)
             let initialRadius = SettingsStore.shared.guideTriggerRadius
+            let existingGuides = CourseLoader.loadGuidePoints()
+            let nextNumber = existingGuides.count + 1
+            let nextLabel = String(format: "#%02d", nextNumber)
+            
             self._selectedCoordinate = State(initialValue: coord)
             self._radius = State(initialValue: initialRadius)
-            self._label = State(initialValue: "")
+            self._label = State(initialValue: nextLabel)
             self._audioId = State(initialValue: nil)
             self._cameraPosition = State(initialValue: .region(MKCoordinateRegion(
                 center: coord,
@@ -91,7 +95,6 @@ struct GuideEditorSheet: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 0) {
-                    mapView
                     formView
                 }
             }
@@ -240,38 +243,39 @@ struct GuideEditorSheet: View {
                     .textFieldStyle(.roundedBorder)
             }
             
-            // Position Section
-            VStack(spacing: 12) {
-                Button(action: {
-                    Task { await useCurrentGPS() }
-                }) {
-                    if isFetchingGPS {
-                        ProgressView().progressViewStyle(.circular).frame(maxWidth: .infinity)
-                    } else {
-                        Text("Use Current GPS").frame(maxWidth: .infinity)
-                    }
+            // Map Section
+            mapView
+            
+            // Use Current GPS Button
+            Button(action: {
+                Task { await useCurrentGPS() }
+            }) {
+                if isFetchingGPS {
+                    ProgressView().progressViewStyle(.circular).frame(maxWidth: .infinity)
+                } else {
+                    Text("Use Current GPS").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isFetchingGPS)
-
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isFetchingGPS)
+            
+            // Coordinates Section
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Coordinates")
+                    .font(.headline)
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Coordinates")
-                        .font(.headline)
-                    
-                    HStack {
-                        Text("Lat:")
-                        Text("\(selectedCoordinate.latitude, specifier: "%.6f")")
-                            .font(.system(.body, design: .monospaced))
-                        Spacer()
-                    }
-                    
-                    HStack {
-                        Text("Lng:")
-                        Text("\(selectedCoordinate.longitude, specifier: "%.6f")")
-                            .font(.system(.body, design: .monospaced))
-                        Spacer()
-                    }
+                HStack {
+                    Text("Lat:")
+                    Text("\(selectedCoordinate.latitude, specifier: "%.6f")")
+                        .font(.system(.body, design: .monospaced))
+                    Spacer()
+                }
+                
+                HStack {
+                    Text("Lng:")
+                    Text("\(selectedCoordinate.longitude, specifier: "%.6f")")
+                        .font(.system(.body, design: .monospaced))
+                    Spacer()
                 }
             }
             
