@@ -12,6 +12,39 @@ struct RunningView: View {
     @State private var showCompletionBanner = false
     @State private var trackCoordinates: [CLLocationCoordinate2D] = []
     
+    // MARK: - Computed Properties for TrackMapView
+    
+    private var mappedGuides: [TrackMapView.GuidePin] {
+        guard let course = currentCourse else { return [] }
+        
+        return course.guidePoints.map { guidePoint in
+            TrackMapView.GuidePin(
+                id: guidePoint.id.uuidString,
+                coord: CLLocationCoordinate2D(
+                    latitude: guidePoint.latitude,
+                    longitude: guidePoint.longitude
+                ),
+                hasAudio: !guidePoint.audioId.isEmpty,
+                label: guidePoint.message.isEmpty ? nil : guidePoint.message
+            )
+        }
+    }
+    
+    private var startLocation: CLLocationCoordinate2D? {
+        guard let course = currentCourse,
+              let firstGuide = course.guidePoints.first else { return nil }
+        
+        return CLLocationCoordinate2D(
+            latitude: firstGuide.latitude,
+            longitude: firstGuide.longitude
+        )
+    }
+    
+    private var endRadius: CLLocationDistance? {
+        // Use the same radius as AutoFinishJudge (30.0 meters)
+        return autoFinishJudge != nil ? 30.0 : nil
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -20,9 +53,9 @@ struct RunningView: View {
                     VStack(spacing: 20) {
                         TrackMapView(
                             track: trackCoordinates,
-                            guides: [], // Empty for now
-                            start: nil, // Will be set later
-                            endRadius: nil, // Will be set later
+                            guides: mappedGuides,
+                            start: startLocation,
+                            endRadius: endRadius,
                             current: locationService.currentLocation?.coordinate
                         )
                         .frame(height: 360)

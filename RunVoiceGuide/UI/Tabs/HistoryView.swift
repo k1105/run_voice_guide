@@ -18,7 +18,9 @@ struct HistoryView: View {
                 } else {
                     List {
                         ForEach(storageService.allRuns, id: \.id) { run in
-                            RunHistoryRow(run: run)
+                            NavigationLink(destination: HistoryDetailView(run: run)) {
+                                RunHistoryRow(run: run)
+                            }
                         }
                         .onDelete(perform: deleteRuns)
                     }
