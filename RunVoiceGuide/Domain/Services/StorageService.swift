@@ -3,12 +3,12 @@ import CoreData
 import CoreLocation
 
 @MainActor
-class StorageService: ObservableObject {
+final class StorageService: ObservableObject {
     static let shared = StorageService()
-    
+
     @Published var currentRun: RunEntity?
     @Published var allRuns: [RunEntity] = []
-    
+
     lazy var persistentContainer: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "RunVoiceGuide")
         container.loadPersistentStores { _, error in
@@ -19,28 +19,28 @@ class StorageService: ObservableObject {
         container.viewContext.automaticallyMergesChangesFromParent = true
         return container
     }()
-    
-    private var context: NSManagedObjectContext {
-        persistentContainer.viewContext
-    }
-    
+
+    private var context: NSManagedObjectContext { persistentContainer.viewContext }
+
     private init() {
         loadAllRuns()
         detectUnfinishedRun()
     }
-    
+
     func save() {
-        if context.hasChanges {
-            do {
-                try context.save()
-                loadAllRuns()
-            } catch {
-                print("Failed to save context: \(error)")
-            }
+        guard context.hasChanges else { return }
+        do {
+            try context.save()
+            loadAllRuns()
+        } catch {
+            print("Failed to save context: \(error)")
         }
     }
-    
-    func startNewRun(at location: CLLocation) -> RunEntity {
+
+    // MARK: - Run Lifecycle
+
+    /// Start時に Run を作り、同時に「開始点 TrackPoint」を1件保存（空Run防止）
+    func startNewRun(at location: CLLocation) {
         let run = RunEntity(context: context)
         run.id = UUID()
         run.startedAt = Date()
@@ -48,47 +48,61 @@ class StorageService: ObservableObject {
         run.startLng = location.coordinate.longitude
         run.endRadius = 0.0
         run.finishConsecutive = 0
-        
+
+        // 開始点を即保存
+        let tp = TrackPointEntity(context: context)
+        tp.runId = run.id
+        tp.ts = run.startedAt
+        tp.lat = location.coordinate.latitude
+        tp.lng = location.coordinate.longitude
+        tp.accuracy = location.horizontalAccuracy
+        tp.speed = location.speed >= 0 ? NSNumber(value: location.speed) : nil
+        tp.heading = location.course >= 0 ? NSNumber(value: location.course) : nil
+        tp.run = run
+
         currentRun = run
         save()
-        
-        print("Started new run: \(run.id?.uuidString ?? "unknown")")
-        return run
+        print("[Storage] Started new run: \(run.id?.uuidString ?? "unknown") with initial point")
     }
-    
+
     func finishCurrentRun(endRadius: Double = 0.0, finishConsecutive: Int32 = 0) {
         guard let run = currentRun else { return }
-        
         run.endedAt = Date()
         run.endRadius = endRadius
         run.finishConsecutive = finishConsecutive
-        
         currentRun = nil
         save()
-        
-        print("Finished run: \(run.id?.uuidString ?? "unknown")")
+        print("[Storage] Finished run: \(run.id?.uuidString ?? "unknown")")
     }
-    
+
+    // MARK: - TrackPoints
+
     func addTrackPoint(to run: RunEntity, location: CLLocation) {
-        let trackPoint = TrackPointEntity(context: context)
-        trackPoint.runId = run.id
-        trackPoint.ts = location.timestamp
-        trackPoint.lat = location.coordinate.latitude
-        trackPoint.lng = location.coordinate.longitude
-        trackPoint.accuracy = location.horizontalAccuracy
-        trackPoint.speed = location.speed >= 0 ? NSNumber(value: location.speed) : nil
-        trackPoint.heading = location.course >= 0 ? NSNumber(value: location.course) : nil
-        trackPoint.run = run
-        
+        let tp = TrackPointEntity(context: context)
+        tp.runId = run.id
+        tp.ts = location.timestamp
+        tp.lat = location.coordinate.latitude
+        tp.lng = location.coordinate.longitude
+        tp.accuracy = location.horizontalAccuracy
+        tp.speed = location.speed >= 0 ? NSNumber(value: location.speed) : nil
+        tp.heading = location.course >= 0 ? NSNumber(value: location.course) : nil
+        tp.run = run
+
         save()
-        
-        print("Added track point to run \(run.id?.uuidString ?? "unknown"): lat=\(trackPoint.lat), lng=\(trackPoint.lng)")
+        print("[Storage] Append point run=\(run.id?.uuidString ?? "unknown") lat=\(tp.lat), lng=\(tp.lng)")
     }
-    
+
+    /// currentRun がある前提で append できるユーティリティ（使わなくてもOK）
+    func appendTrackPoint(_ location: CLLocation) {
+        guard let run = currentRun else { return }
+        addTrackPoint(to: run, location: location)
+    }
+
+    // MARK: - Queries
+
     func loadAllRuns() {
         let request: NSFetchRequest<RunEntity> = RunEntity.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(keyPath: \RunEntity.startedAt, ascending: false)]
-        
         do {
             allRuns = try context.fetch(request)
         } catch {
@@ -96,29 +110,26 @@ class StorageService: ObservableObject {
             allRuns = []
         }
     }
-    
+
     private func detectUnfinishedRun() {
         let request: NSFetchRequest<RunEntity> = RunEntity.fetchRequest()
         request.predicate = NSPredicate(format: "endedAt == nil")
         request.sortDescriptors = [NSSortDescriptor(keyPath: \RunEntity.startedAt, ascending: false)]
         request.fetchLimit = 1
-        
         do {
-            let unfinishedRuns = try context.fetch(request)
-            if let unfinishedRun = unfinishedRuns.first {
-                currentRun = unfinishedRun
-                print("Detected unfinished run: \(unfinishedRun.id?.uuidString ?? "unknown"), started at \(unfinishedRun.startedAt ?? Date())")
+            if let unfinished = try context.fetch(request).first {
+                currentRun = unfinished
+                print("[Storage] Detected unfinished run: \(unfinished.id?.uuidString ?? "unknown")")
             }
         } catch {
             print("Failed to detect unfinished run: \(error)")
         }
     }
-    
+
     func getTrackPoints(for run: RunEntity) -> [TrackPointEntity] {
         let request: NSFetchRequest<TrackPointEntity> = TrackPointEntity.fetchRequest()
         request.predicate = NSPredicate(format: "runId == %@", run.id! as CVarArg)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \TrackPointEntity.ts, ascending: true)]
-        
         do {
             return try context.fetch(request)
         } catch {
@@ -126,7 +137,7 @@ class StorageService: ObservableObject {
             return []
         }
     }
-    
+
     func deleteRun(_ run: RunEntity) {
         context.delete(run)
         if currentRun?.id == run.id {
