@@ -1,7 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @StateObject private var settings = SettingsStore.shared
+    @StateObject private var importExportService = ImportExportService.shared
+    
+    @State private var showingExportPicker = false
+    @State private var showingImportPicker = false
+    @State private var exportURL: URL?
     
     var body: some View {
         NavigationView {
@@ -82,6 +88,41 @@ struct SettingsView: View {
                 }
                 
                 Section {
+                    Button("Export Audio & Guides") {
+                        exportData()
+                    }
+                    .disabled(importExportService.isProcessing)
+                    
+                    Button("Import Audio & Guides") {
+                        showingImportPicker = true
+                    }
+                    .disabled(importExportService.isProcessing)
+                    
+                    if importExportService.isProcessing {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Processing...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    if let error = importExportService.lastError {
+                        Text("Error: \(error)")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .onTapGesture {
+                                importExportService.clearLastError()
+                            }
+                    }
+                } header: {
+                    Text("Data Management")
+                } footer: {
+                    Text("Export creates a .rvgexport bundle with audio files and placement data. You can save to iCloud and import on other devices.")
+                }
+                
+                Section {
                     HStack {
                         Text("ガイド初期半径")
                         Spacer()
@@ -107,6 +148,102 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+        }
+        .sheet(isPresented: $showingExportPicker) {
+            if let url = exportURL {
+                DocumentPicker(url: url, mode: .export)
+            }
+        }
+        .sheet(isPresented: $showingImportPicker) {
+            DocumentPicker(mode: .import) { url in
+                importData(from: url)
+            }
+        }
+    }
+    
+    private func exportData() {
+        Task {
+            do {
+                let exportURL = try await importExportService.exportAudioAndPlacement()
+                await MainActor.run {
+                    self.exportURL = exportURL
+                    showingExportPicker = true
+                }
+            } catch {
+                await MainActor.run {
+                    importExportService.lastError = error.localizedDescription
+                }
+            }
+        }
+    }
+    
+    private func importData(from url: URL) {
+        Task {
+            do {
+                try await importExportService.importAudioAndPlacement(from: url)
+            } catch {
+                await MainActor.run {
+                    importExportService.lastError = error.localizedDescription
+                }
+            }
+        }
+    }
+}
+
+struct DocumentPicker: UIViewControllerRepresentable {
+    let url: URL?
+    let mode: Mode
+    let onImport: ((URL) -> Void)?
+    
+    enum Mode {
+        case export
+        case `import`
+    }
+    
+    init(url: URL, mode: Mode) {
+        self.url = url
+        self.mode = mode
+        self.onImport = nil
+    }
+    
+    init(mode: Mode, onImport: @escaping (URL) -> Void) {
+        self.url = nil
+        self.mode = mode
+        self.onImport = onImport
+    }
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        switch mode {
+        case .export:
+            guard let url = url else {
+                fatalError("Export mode requires URL")
+            }
+            let picker = UIDocumentPickerViewController(forExporting: [url])
+            return picker
+            
+        case .import:
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.item])
+            picker.delegate = context.coordinator
+            return picker
+        }
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: DocumentPicker
+        
+        init(_ parent: DocumentPicker) {
+            self.parent = parent
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            parent.onImport?(url)
         }
     }
 }

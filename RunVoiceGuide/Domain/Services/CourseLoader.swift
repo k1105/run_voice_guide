@@ -46,6 +46,23 @@ class CourseLoader {
         }
     }
     
+    static func rebindGuideAudioId(_ guideId: UUID, newAudioId: String) {
+        var guides = loadGuidePoints()
+        if let index = guides.firstIndex(where: { $0.id == guideId }) {
+            guides[index] = GuidePoint(
+                id: guides[index].id,
+                latitude: guides[index].latitude,
+                longitude: guides[index].longitude,
+                radius: guides[index].radius,
+                message: guides[index].message,
+                audioId: newAudioId,
+                isCompleted: guides[index].isCompleted
+            )
+            saveGuidePoints(guides)
+            print("[CourseLoader] Rebound guide \(guideId) to audioId: \(newAudioId)")
+        }
+    }
+    
     // MARK: - Course Loading
     
     static func loadDefaultCourse() -> Course? {
