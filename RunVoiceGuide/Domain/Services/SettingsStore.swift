@@ -28,12 +28,20 @@ final class SettingsStore: ObservableObject {
         }
     }
     
+    @Published var bgmEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(bgmEnabled, forKey: Keys.bgmEnabled)
+            print("[Settings] BGM enabled updated: \(bgmEnabled)")
+        }
+    }
+    
     // MARK: - Keys
     
     private enum Keys {
         static let guideTriggerRadius = "guideTriggerRadius"
         static let finishRadius = "finishRadius"
         static let finishConsecutive = "finishConsecutive"
+        static let bgmEnabled = "bgmEnabled"
     }
     
     // MARK: - Defaults
@@ -42,6 +50,7 @@ final class SettingsStore: ObservableObject {
         static let guideTriggerRadius: Double = 40.0
         static let finishRadius: Double = 30.0
         static let finishConsecutive: Int = 3
+        static let bgmEnabled: Bool = true
     }
     
     // MARK: - Initialization
@@ -51,8 +60,9 @@ final class SettingsStore: ObservableObject {
         self.guideTriggerRadius = UserDefaults.standard.object(forKey: Keys.guideTriggerRadius) as? Double ?? Defaults.guideTriggerRadius
         self.finishRadius = UserDefaults.standard.object(forKey: Keys.finishRadius) as? Double ?? Defaults.finishRadius
         self.finishConsecutive = UserDefaults.standard.object(forKey: Keys.finishConsecutive) as? Int ?? Defaults.finishConsecutive
+        self.bgmEnabled = UserDefaults.standard.object(forKey: Keys.bgmEnabled) as? Bool ?? Defaults.bgmEnabled
         
-        print("[Settings] Loaded settings - Guide: \(guideTriggerRadius)m, Finish: \(finishRadius)m, Consecutive: \(finishConsecutive)")
+        print("[Settings] Loaded settings - Guide: \(guideTriggerRadius)m, Finish: \(finishRadius)m, Consecutive: \(finishConsecutive), BGM: \(bgmEnabled)")
     }
     
     // MARK: - Reset
@@ -61,6 +71,7 @@ final class SettingsStore: ObservableObject {
         guideTriggerRadius = Defaults.guideTriggerRadius
         finishRadius = Defaults.finishRadius
         finishConsecutive = Defaults.finishConsecutive
+        bgmEnabled = Defaults.bgmEnabled
         print("[Settings] Reset to defaults")
     }
 }

@@ -199,8 +199,10 @@ struct RunningView: View {
                                     )
                                 }
                                 
-                                // Start BGM
-                                audioService.startBGM()
+                                // Start BGM if enabled
+                                if settings.bgmEnabled {
+                                    audioService.startBGM()
+                                }
                             }
                         } label: {
                         HStack {
@@ -267,7 +269,9 @@ struct RunningView: View {
                     !locationService.isTracking {
                     audioService.activateSession()
                     locationService.startTracking()
-                    audioService.startBGM()
+                    if settings.bgmEnabled {
+                        audioService.startBGM()
+                    }
                 }
             }
             .onDisappear {

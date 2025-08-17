@@ -79,6 +79,14 @@ struct SettingsView: View {
                 }
                 
                 Section {
+                    Toggle("BGM再生", isOn: $settings.bgmEnabled)
+                } header: {
+                    Text("音声設定")
+                } footer: {
+                    Text("ランニング中にBGMを再生するかどうかを設定します。")
+                }
+                
+                Section {
                     Button("デフォルトに戻す") {
                         settings.resetToDefaults()
                     }
@@ -142,6 +150,14 @@ struct SettingsView: View {
                         Spacer()
                         Text("\(settings.finishConsecutive)")
                             .font(.system(.body, design: .monospaced))
+                    }
+                    
+                    HStack {
+                        Text("BGM再生")
+                        Spacer()
+                        Text(settings.bgmEnabled ? "有効" : "無効")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(settings.bgmEnabled ? .green : .red)
                     }
                 } header: {
                     Text("現在の設定値")
